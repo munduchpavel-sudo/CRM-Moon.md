@@ -1,0 +1,9 @@
+fastapi
+pydantic
+uvicorn
+requests
+httpx2
+pytest
+
+# Optional / dev
+python-dotenv
