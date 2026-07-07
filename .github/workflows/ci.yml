@@ -7,7 +7,17 @@ on:
     branches: [ main ]
 
 jobs:
+  workflow-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint GitHub Actions workflow
+        uses: rhysd/actionlint@v1
+
   test:
+    needs: [workflow-lint]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -28,3 +38,53 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+
+  compose-validate:
+    needs: [workflow-lint]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Docker Compose (dev)
+        run: |
+          cp .env.example .env
+          docker compose config > /tmp/compose.dev.render.yml
+
+      - name: Validate Docker Compose (prod override)
+        run: |
+          docker compose --env-file .env.prod.example -f docker-compose.yml -f docker-compose.prod.yml config > /tmp/compose.prod.render.yml
+
+  nginx-validate:
+    needs: [workflow-lint, compose-validate]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate nginx config (dev)
+        run: |
+          docker run --rm \
+            --add-host backend:127.0.0.1 \
+            --add-host fastapi:127.0.0.1 \
+            --add-host frontend:127.0.0.1 \
+            -v "$PWD/infra/nginx/default.dev.conf:/etc/nginx/conf.d/default.conf:ro" \
+            nginx:stable-alpine nginx -t
+
+      - name: Create temporary TLS certs for prod config check
+        run: |
+          mkdir -p /tmp/certs/live/crm.moon-sun.cz
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -keyout /tmp/certs/live/crm.moon-sun.cz/privkey.pem \
+            -out /tmp/certs/live/crm.moon-sun.cz/fullchain.pem \
+            -subj "/CN=crm.moon-sun.cz"
+
+      - name: Validate nginx config (prod)
+        run: |
+          docker run --rm \
+            --add-host backend:127.0.0.1 \
+            --add-host fastapi:127.0.0.1 \
+            --add-host frontend:127.0.0.1 \
+            -v "$PWD/infra/nginx/default.prod.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "/tmp/certs:/etc/letsencrypt:ro" \
+            nginx:stable-alpine nginx -t
