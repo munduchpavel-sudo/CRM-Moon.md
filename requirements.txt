@@ -2,8 +2,9 @@ fastapi
 pydantic
 uvicorn
 requests
-httpx2
+httpx
 pytest
+pymodbus
 
 # Optional / dev
 python-dotenv
