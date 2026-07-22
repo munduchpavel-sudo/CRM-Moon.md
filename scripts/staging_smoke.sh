@@ -14,10 +14,13 @@ BASE_URL="${BASE_URL%/}"
 expect_200() {
   local path="$1"
   local code
+  : > /tmp/smoke.out
   code=$(curl -sS --max-time 10 -o /tmp/smoke.out -w "%{http_code}" "$BASE_URL$path" || true)
   if [[ "$code" != "200" ]]; then
     echo "ERROR: $path returned HTTP $code"
-    cat /tmp/smoke.out || true
+    if [[ -s /tmp/smoke.out ]]; then
+      cat /tmp/smoke.out || true
+    fi
     exit 1
   fi
   echo "OK 200: $path"
