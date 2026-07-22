@@ -36,6 +36,14 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+      - name: Install backend dependencies
+        run: npm --prefix backend install
+
+      - name: Run backend checks
+        run: |
+          npm --prefix backend run build
+          npm --prefix backend run test
+
       - name: Run tests
         run: pytest -q
 
@@ -88,3 +96,66 @@ jobs:
             -v "$PWD/infra/nginx/default.prod.conf:/etc/nginx/conf.d/default.conf:ro" \
             -v "/tmp/certs:/etc/letsencrypt:ro" \
             nginx:stable-alpine nginx -t
+
+  e2e-docker-smoke:
+    needs: [workflow-lint, compose-validate, nginx-validate]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Build and start stack
+        run: docker compose up -d --build
+
+      - name: Wait for nginx-routed health endpoints
+        run: |
+          for i in $(seq 1 60); do
+            api_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/health || true)
+            py_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/pyapi/system/health || true)
+            if [ "$api_code" = "200" ] && [ "$py_code" = "200" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Timed out waiting for routed health endpoints"
+          docker compose ps
+          docker compose logs --tail=200
+          exit 1
+
+      - name: Auth and DB smoke checks through nginx
+        run: |
+          set -e
+          EMAIL="ci.e2e.$(date +%s)@example.com"
+          PASS="Test1234!"
+
+          reg_code=$(curl -sS -o /tmp/reg.json -w "%{http_code}" \
+            -X POST http://localhost/api/auth/register \
+            -H 'Content-Type: application/json' \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"full_name\":\"CI E2E\"}")
+          [ "$reg_code" = "201" ]
+
+          login_code=$(curl -sS -o /tmp/login.json -w "%{http_code}" \
+            -X POST http://localhost/api/auth/login \
+            -H 'Content-Type: application/json' \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")
+          [ "$login_code" = "200" ]
+
+          token=$(sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p' /tmp/login.json)
+          [ -n "$token" ]
+
+          google_code=$(curl -sS -o /tmp/google.json -w "%{http_code}" http://localhost/api/calendar/google/authorize)
+          [ "$google_code" = "200" ]
+
+          user_count=$(docker compose exec -T db psql -U crm -d crmdb -t -A -c "select count(*) from users where email='$EMAIL';")
+          [ "$user_count" = "1" ]
+
+      - name: Print logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v

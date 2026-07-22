@@ -20,6 +20,7 @@ const app = express();
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use('/api/auth', authRouter);
 app.use('/api/clients', clientsRouter);
@@ -40,16 +41,44 @@ async function runMigrations() {
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
   for (const file of files) {
     const sql = fs.readFileSync(path.join(dir, file), 'utf8');
+    await pool.query(sql);
+    console.log('applied', file);
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForDatabase() {
+  const retries = Number(process.env.DB_CONNECT_RETRIES || 30);
+  const delayMs = Number(process.env.DB_CONNECT_DELAY_MS || 2000);
+
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
-      await pool.query(sql);
-      console.log('applied', file);
-    } catch (e) {
-      console.error('migration error', file, e);
+      await pool.query('SELECT 1');
+      console.log('database ready');
+      return;
+    } catch (error) {
+      const isLast = attempt === retries;
+      console.warn(`database not ready (${attempt}/${retries})`);
+      if (isLast) {
+        throw error;
+      }
+      await sleep(delayMs);
     }
   }
 }
 
-runMigrations().catch(console.error);
+async function bootstrap() {
+  await waitForDatabase();
+  await runMigrations();
 
-const port = process.env.PORT || 4000;
-app.listen(port, () => console.log(`Backend listening on ${port}`));
+  const port = process.env.PORT || 4000;
+  app.listen(port, () => console.log(`Backend listening on ${port}`));
+}
+
+bootstrap().catch((error) => {
+  console.error('backend bootstrap failed', error);
+  process.exit(1);
+});
