@@ -26,14 +26,22 @@ jobs:
         run: |
           if [ -n "$BASE_URL_INPUT" ]; then
             echo "base_url=$BASE_URL_INPUT" >> "$GITHUB_OUTPUT"
+            echo "run_monitor=true" >> "$GITHUB_OUTPUT"
           elif [ -n "$STAGING_BASE_URL" ]; then
             echo "base_url=$STAGING_BASE_URL" >> "$GITHUB_OUTPUT"
+            echo "run_monitor=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Missing inputs.base_url or secret STAGING_BASE_URL"
-            exit 1
+            echo "base_url=" >> "$GITHUB_OUTPUT"
+            echo "run_monitor=false" >> "$GITHUB_OUTPUT"
+            echo "No target URL configured; skipping monitor run."
           fi
 
+      - name: Skip when no URL is configured
+        if: steps.target.outputs.run_monitor != 'true'
+        run: echo "Uptime monitor skipped (set STAGING_BASE_URL or run with base_url input)."
+
       - name: Run readiness smoke
+        if: steps.target.outputs.run_monitor == 'true'
         run: |
           chmod +x scripts/staging_smoke.sh
           scripts/staging_smoke.sh "${{ steps.target.outputs.base_url }}" --readiness-only
