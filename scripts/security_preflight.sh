@@ -44,7 +44,7 @@ check_not_placeholder DATABASE_URL
 check_not_placeholder GOOGLE_CLIENT_ID
 check_not_placeholder GOOGLE_CLIENT_SECRET
 
-if [[ ${#JWT_SECRET:-0} -lt 32 ]]; then
+if [[ ${#JWT_SECRET} -lt 32 ]]; then
   echo "ERROR: JWT_SECRET must be at least 32 characters"
   errors=$((errors + 1))
 fi
