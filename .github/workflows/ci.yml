@@ -118,7 +118,7 @@ jobs:
         run: |
           for _ in $(seq 1 60); do
             api_code=$(curl -sS --max-time 3 -o /dev/null -w "%{http_code}" http://localhost/api/health || true)
-            py_code=$(curl -sS --max-time 3 -o /dev/null -w "%{http_code}" http://localhost/pyapi/system/health || true)
+            py_code=$(curl -sS --max-time 3 -o /dev/null -w "%{http_code}" http://localhost/pyapi/openapi.json || true)
             if [ "$api_code" = "200" ] && [ "$py_code" = "200" ]; then
               exit 0
             fi
