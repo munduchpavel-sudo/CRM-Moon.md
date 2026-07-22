@@ -95,7 +95,7 @@ services:
       backend:
         condition: service_healthy
       fastapi:
-        condition: service_healthy
+        condition: service_started
     networks:
       - webnet
 
