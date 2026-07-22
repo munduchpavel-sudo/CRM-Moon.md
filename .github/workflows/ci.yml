@@ -117,8 +117,8 @@ jobs:
       - name: Wait for nginx-routed health endpoints
         run: |
           for _ in $(seq 1 60); do
-            api_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/health || true)
-            py_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/pyapi/system/health || true)
+            api_code=$(curl -sS --max-time 3 -o /dev/null -w "%{http_code}" http://localhost/api/health || true)
+            py_code=$(curl -sS --max-time 3 -o /dev/null -w "%{http_code}" http://localhost/pyapi/system/health || true)
             if [ "$api_code" = "200" ] && [ "$py_code" = "200" ]; then
               exit 0
             fi
@@ -135,13 +135,13 @@ jobs:
           EMAIL="ci.e2e.$(date +%s)@example.com"
           PASS="Test1234!"
 
-          reg_code=$(curl -sS -o /tmp/reg.json -w "%{http_code}" \
+          reg_code=$(curl -sS --max-time 10 -o /tmp/reg.json -w "%{http_code}" \
             -X POST http://localhost/api/auth/register \
             -H 'Content-Type: application/json' \
             -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"full_name\":\"CI E2E\"}")
           [ "$reg_code" = "201" ]
 
-          login_code=$(curl -sS -o /tmp/login.json -w "%{http_code}" \
+          login_code=$(curl -sS --max-time 10 -o /tmp/login.json -w "%{http_code}" \
             -X POST http://localhost/api/auth/login \
             -H 'Content-Type: application/json' \
             -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")
@@ -150,7 +150,7 @@ jobs:
           token=$(sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p' /tmp/login.json)
           [ -n "$token" ]
 
-          google_code=$(curl -sS -o /tmp/google.json -w "%{http_code}" http://localhost/api/calendar/google/authorize)
+          google_code=$(curl -sS --max-time 10 -o /tmp/google.json -w "%{http_code}" http://localhost/api/calendar/google/authorize)
           [ "$google_code" = "200" ]
 
           user_count=$(docker compose exec -T db psql -U crm -d crmdb -t -A -c "select count(*) from users where email='$EMAIL';")
