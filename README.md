@@ -17,7 +17,8 @@ This repository contains a basic CRM scaffold with:
    - Frontend: `npm --prefix frontend install`
 2. Prepare environment variables:
    - `cp .env.example .env`
-   - adjust secrets/keys as needed
+   - set real values for `JWT_SECRET`, `DATABASE_URL`, API keys
+   - keep `DEMO_AUTH_ENABLED=false` for production-like runs
 3. Start services separately (dev mode):
    - Backend API (Express): `npm --prefix backend run dev` (default port `4000`)
    - Frontend (Vite): `npm --prefix frontend run dev`
@@ -32,6 +33,7 @@ This repository contains a basic CRM scaffold with:
 5. Production compose variant:
    - `cp .env.prod.example .env.prod`
    - fill production secrets and keys in `.env.prod`
+   - keep `DEMO_AUTH_ENABLED=false`
    - `docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
    - prod uses TLS-enabled nginx config (`infra/nginx/default.prod.conf`)
 

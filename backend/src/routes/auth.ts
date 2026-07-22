@@ -2,9 +2,9 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from '../pg.js';
+import { JWT_SECRET } from '../config.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'please_change_me';
 
 router.post('/register', async (req, res) => {
   const { email, password, full_name } = req.body;
