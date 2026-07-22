@@ -62,3 +62,18 @@ This repository contains a basic CRM scaffold with:
 - `partner_commission.py`: business logika pro rozdělení provize partnera.
 - `tests/`: testy (`tests/test_new_endpoints.py`, `tests/test_nexus_dispatcher.py`) používající `app` z `app.py`.
 - `backup/CODE_CRM-1.txt`: záloha původního souboru.
+
+## Go-Live (3 kroky)
+
+1. Security preflight (secrets + kritická konfigurace)
+   - `cp .env.prod.example .env.prod`
+   - doplň reálné hodnoty
+   - `bash scripts/security_preflight.sh .env.prod`
+
+2. Staging smoke test
+   - `bash scripts/staging_smoke.sh https://staging.example.com --full`
+
+3. Průběžný monitoring + alerting
+   - workflow: `.github/workflows/uptime-monitor.yml`
+   - nastav GitHub secret `STAGING_BASE_URL`
+   - volitelně nastav `MONITOR_WEBHOOK_URL` pro alert notifikace při failu
