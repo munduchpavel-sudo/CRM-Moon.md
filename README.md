@@ -77,3 +77,6 @@ This repository contains a basic CRM scaffold with:
    - workflow: `.github/workflows/uptime-monitor.yml`
    - nastav GitHub secret `STAGING_BASE_URL`
    - volitelně nastav `MONITOR_WEBHOOK_URL` pro alert notifikace při failu
+   - helper skript pro secrets: `bash scripts/setup_monitoring_secrets.sh munduchpavel-sudo/CRM-Moon.md`
+
+Kompletní release postup je v `RELEASE_CHECKLIST.md`.
