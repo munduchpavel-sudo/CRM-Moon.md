@@ -1,0 +1,10 @@
+fastapi
+pydantic
+uvicorn
+requests
+httpx
+pytest
+pymodbus
+
+# Optional / dev
+python-dotenv

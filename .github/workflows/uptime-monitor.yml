@@ -1,0 +1,61 @@
+name: Uptime Monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Override target URL (e.g. https://staging.example.com)"
+        required: false
+        type: string
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL_INPUT: ${{ inputs.base_url }}
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      MONITOR_WEBHOOK_URL: ${{ secrets.MONITOR_WEBHOOK_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target URL
+        id: target
+        run: |
+          if [ -n "$BASE_URL_INPUT" ]; then
+            echo "base_url=$BASE_URL_INPUT" >> "$GITHUB_OUTPUT"
+            echo "run_monitor=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$STAGING_BASE_URL" ]; then
+            echo "base_url=$STAGING_BASE_URL" >> "$GITHUB_OUTPUT"
+            echo "run_monitor=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "base_url=" >> "$GITHUB_OUTPUT"
+            echo "run_monitor=false" >> "$GITHUB_OUTPUT"
+            echo "No target URL configured; skipping monitor run."
+          fi
+
+      - name: Skip when no URL is configured
+        if: steps.target.outputs.run_monitor != 'true'
+        run: echo "Uptime monitor skipped (set STAGING_BASE_URL or run with base_url input)."
+
+      - name: Run readiness smoke
+        if: steps.target.outputs.run_monitor == 'true'
+        run: |
+          chmod +x scripts/staging_smoke.sh
+          scripts/staging_smoke.sh "${{ steps.target.outputs.base_url }}" --readiness-only
+
+      - name: Send webhook alert on failure
+        if: failure() && env.MONITOR_WEBHOOK_URL != ''
+        run: |
+          payload=$(cat <<JSON
+          {
+            "text": "[CRM-Moon] Uptime monitor failed on ${{ steps.target.outputs.base_url }}. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          JSON
+          )
+
+          curl -sS -X POST "$MONITOR_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "$payload"
